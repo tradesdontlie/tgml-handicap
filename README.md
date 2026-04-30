@@ -23,13 +23,13 @@ Streamlit app for the TGML 9-hole golf league. Log rounds, compute USGA-style ha
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run streamlit_app.py
 ```
 
 ## Deploy on Streamlit Community Cloud
 
 1. Push this repo to GitHub.
 2. Go to https://share.streamlit.io and connect the repo.
-3. Set the entrypoint to `app.py`.
+3. Entrypoint is `streamlit_app.py` (the Cloud default).
 
 Note: Streamlit Cloud has an ephemeral filesystem, so `rounds.csv` resets on each redeploy. For persistent multi-player data, swap the CSV layer in `app.py` for a hosted store (Google Sheet, Supabase, etc.).
