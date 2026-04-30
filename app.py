@@ -26,6 +26,20 @@ def save_rounds(df: pd.DataFrame) -> None:
     df.to_csv(DATA_FILE, index=False)
 
 
+def normalize_player(name: str) -> str:
+    """Title-case + strip so 'steve  ' and 'Steve' don't become two players."""
+    return " ".join(name.strip().split()).title()
+
+
+def format_index(idx) -> str:
+    """Golf convention: plus-handicap (better than scratch) prints as '+2.5'."""
+    if idx is None:
+        return "—"
+    if idx < 0:
+        return f"+{abs(idx):.1f}"
+    return f"{idx:.1f}"
+
+
 st.set_page_config(page_title="TGML Handicap", page_icon="⛳", layout="wide")
 st.title("⛳ TGML Handicap Calculator")
 st.caption("9-hole daily rounds · USGA-style index (best of last 20 × 0.96)")
@@ -67,6 +81,7 @@ with tab_log:
     )
 
     if st.button("Save round", type="primary", disabled=not player):
+        player = normalize_player(player)
         new_row = pd.DataFrame(
             [
                 {
@@ -104,7 +119,8 @@ with tab_index:
                 "Player": name,
                 "Rounds": n,
                 "Status": status,
-                "Index": idx if idx is not None else "—",
+                "Index": format_index(idx),
+                "_sort": idx if idx is not None else 99,
             }
             if idx is not None:
                 for tee_name, tee in TEES.items():
@@ -112,15 +128,23 @@ with tab_index:
                         idx, tee["slope"], tee["rating"], PAR
                     )
             rows.append(row)
-        out = pd.DataFrame(rows).sort_values(
-            "Index",
-            key=lambda s: pd.to_numeric(s, errors="coerce").fillna(99),
+        out = (
+            pd.DataFrame(rows)
+            .sort_values("_sort")
+            .drop(columns=["_sort"])
         )
-        st.dataframe(out, use_container_width=True, hide_index=True)
+        st.dataframe(out, width="stretch", hide_index=True)
         st.caption(
             "Course handicap = Index × (Slope / 113) + (CR − Par). "
             "Provisional = mean of logged diffs × 0.96. "
-            "Established (3+ rounds) = USGA best-of-N × 0.96."
+            "Established (3+ rounds) = USGA best-of-N × 0.96. "
+            "An index shown as `+X` is a plus-handicap (better than scratch)."
+        )
+        st.download_button(
+            "Download index table (CSV)",
+            data=out.to_csv(index=False).encode("utf-8"),
+            file_name="tgml_handicap_index.csv",
+            mime="text/csv",
         )
 
 # ---------- Tab: History ----------
@@ -132,7 +156,14 @@ with tab_history:
         pick = st.selectbox("Filter by player", players)
         view = rounds if pick == "All" else rounds[rounds["player"] == pick]
         view = view.sort_values("date", ascending=False)
-        st.dataframe(view, use_container_width=True, hide_index=True)
+        st.dataframe(view, width="stretch", hide_index=True)
+
+        st.download_button(
+            "Download rounds (CSV)",
+            data=view.to_csv(index=False).encode("utf-8"),
+            file_name=f"tgml_rounds_{pick.lower().replace(' ', '_')}.csv",
+            mime="text/csv",
+        )
 
         if pick != "All" and not view.empty:
             chart = view.sort_values("date").set_index("date")["differential"]
@@ -147,7 +178,7 @@ with tab_admin:
         edited = st.data_editor(
             rounds.sort_values("date", ascending=False).reset_index(drop=True),
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             key="editor",
         )
         if st.button("Save changes"):
@@ -177,6 +208,6 @@ with tab_admin:
                 for k, v in TEES.items()
             ]
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
