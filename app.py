@@ -88,13 +88,22 @@ with tab_index:
     if rounds.empty:
         st.info("No rounds logged yet. Log a round to get started.")
     else:
+        provisional = st.toggle(
+            "Provisional index for new players (1–2 rounds)",
+            value=True,
+            help="When on, new players get an index from their first round (mean × 0.96). "
+                 "Switches to USGA best-of-N after 3+ rounds.",
+        )
         rows = []
         for name, grp in rounds.sort_values("date").groupby("player"):
             diffs = grp["differential"].astype(float).tolist()
-            idx = handicap_index(diffs)
+            idx = handicap_index(diffs, provisional=provisional)
+            n = len(diffs)
+            status = "—" if idx is None else ("Provisional" if n < 3 else "Established")
             row = {
                 "Player": name,
-                "Rounds": len(diffs),
+                "Rounds": n,
+                "Status": status,
                 "Index": idx if idx is not None else "—",
             }
             if idx is not None:
@@ -110,7 +119,8 @@ with tab_index:
         st.dataframe(out, use_container_width=True, hide_index=True)
         st.caption(
             "Course handicap = Index × (Slope / 113) + (CR − Par). "
-            "Need 3+ rounds to compute an index."
+            "Provisional = mean of logged diffs × 0.96. "
+            "Established (3+ rounds) = USGA best-of-N × 0.96."
         )
 
 # ---------- Tab: History ----------

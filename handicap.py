@@ -34,17 +34,21 @@ BEST_OF_TABLE = {
 }
 
 
-def handicap_index(diffs):
+def handicap_index(diffs, provisional=False):
     """Compute handicap index from a list of recent differentials.
 
-    Uses USGA best-of-table on the most recent 20. Returns None with <3 rounds.
+    USGA best-of-table on the most recent 20.
+    If provisional=True, players with 1-2 rounds get mean(diffs) * 0.96
+    instead of None — useful for leagues that need a handicap from round one.
     """
+    if not diffs:
+        return None
     if len(diffs) < 3:
+        if provisional:
+            return round(mean(diffs) * 0.96, 1)
         return None
     recent = diffs[-20:]
-    n = len(recent)
-    if n >= 20:
-        n = 20
+    n = min(len(recent), 20)
     count, adj = BEST_OF_TABLE[n]
     best = sorted(recent)[:count]
     return round(mean(best) * 0.96 + adj, 1)
